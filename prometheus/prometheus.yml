@@ -1,0 +1,35 @@
+global:
+  scrape_interval:     15s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
+  # scrape_timeout is set to the global default (10s).
+  external_labels:
+    monitor: 'monitor'
+
+remote_write:
+  - url: "http://localhost:9201/write"
+    remote_timeout: 100s
+    queue_config:
+      capacity: 100000
+      max_samples_per_send: 10000
+      batch_send_deadline: 30s
+      min_shards: 20
+      max_shards: 20
+      min_backoff: 100ms
+      max_backoff: 10s
+      
+remote_read:
+  - url: "http://localhost:9201/read"
+    read_recent: true
+    
+# A scrape configuration containing exactly one endpoint to scrape:
+# Here it's Prometheus itself.
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'prometheus'
+
+    # Override the global default and scrape targets from this job every 5 seconds.
+    scrape_interval: 5s
+
+    static_configs:
+      - targets: ['localhost:9090']
+      

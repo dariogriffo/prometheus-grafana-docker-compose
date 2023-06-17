@@ -1,0 +1,86 @@
+version: '3.5'
+
+volumes:
+  grafana_data:
+      name: grafana_data
+      driver: local
+  prometheus_data:
+      name: prometheus_data
+      driver: local
+  timescale_db_data:
+      name: promscale_data
+      driver: local
+
+networks:
+  network:
+    name: network
+
+services:
+
+  timescale_db:
+    image: timescale/timescaledb-ha:pg14-latest
+    ports:
+     - "5432:5432/tcp"   
+    volumes:
+      - timescale_db_data:/var/lib/postgresql/data   
+    environment:
+     POSTGRES_PASSWORD: postgres
+     POSTGRES_USER: postgres
+     POSTGRES_DB: postgres
+     TSTUNE_PROFILE: promscale
+    networks:
+      - network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  promscale:
+    image: timescale/promscale
+    container_name: promscale
+    restart: no
+    depends_on:
+     - timescale_db
+    ports:
+      - "9201:9201"
+    environment:
+      PROMSCALE_DB_HOST: host.docker.internal
+      PROMSCALE_DB_PORT: 5432
+      PROMSCALE_DB_NAME: postgres
+      PROMSCALE_DB_USER: postgres
+      PROMSCALE_DB_PASSWORD: postgres
+      PROMSCALE_DB_SSL_MODE: allow
+    networks:
+      - network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      
+  prometheus:
+    build:
+      context: .
+      dockerfile: ./prometheus/Dockerfile
+    image: prometheus
+    container_name: prometheus
+    depends_on:
+     - promscale
+    ports:
+      - 9090:9090
+    networks:
+      - network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - prometheus_data:/etc/prometheus/
+    
+  grafana:
+    build:
+      context: .
+      dockerfile: ./grafana/Dockerfile
+    image: grafana
+    container_name: grafana
+    ports:
+      - 3000:3000
+    networks:
+      - network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - grafana_data:/var/lib/grafana
